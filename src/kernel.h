@@ -6,11 +6,31 @@
 
 #include <primitives/transaction.h> // CTransaction(Ref)
 
+#include <cstdint>
+
 class CBlockIndex;
 class BlockValidationState;
 class CBlockHeader;
 class CBlock;
 class Chainstate;
+
+namespace Kernel {
+
+/** Values serialized into the proof-of-stake kernel hash. */
+struct StakeKernelHashInputs {
+    bool use_stake_modifier{false};
+    uint32_t nBits{0};
+    uint64_t nStakeModifier{0};
+    uint32_t nTimeBlockFrom{0};
+    uint32_t nTxPrevOffset{0};
+    uint32_t nTimeTxPrev{0};
+    uint32_t nPrevOutput{0};
+    uint32_t nTimeTx{0};
+
+    uint256 GetHash() const;
+};
+
+} // namespace Kernel
 
 
 // MODIFIER_INTERVAL_RATIO:
