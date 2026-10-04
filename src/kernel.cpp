@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 
 using namespace std;
 
@@ -34,40 +35,68 @@ uint256 Kernel::StakeKernelHashInputs::GetHash() const
     return Hash(stream);
 }
 
-// Protocol switch time of v0.3 kernel protocol
-unsigned int nProtocolV03SwitchTime     = 1363800000;
-unsigned int nProtocolV03TestSwitchTime = 1359781000;
-// Protocol switch time of v0.4 kernel protocol
-unsigned int nProtocolV04SwitchTime     = 1399300000;
-unsigned int nProtocolV04TestSwitchTime = 1395700000;
-// Protocol switch time of v0.5 kernel protocol
-unsigned int nProtocolV05SwitchTime     = 1461700000;
-unsigned int nProtocolV05TestSwitchTime = 1447700000;
-// Protocol switch time of v0.6 kernel protocol
-// supermajority hardfork: actual fork will happen later than switch time
-const unsigned int nProtocolV06SwitchTime     = 1513050000; // Tue 12 Dec 03:40:00 UTC 2017
-const unsigned int nProtocolV06TestSwitchTime = 1508198400; // Tue 17 Oct 00:00:00 UTC 2017
-// Protocol switch time for 0.7 kernel protocol
-const unsigned int nProtocolV07SwitchTime     = 1552392000; // Tue 12 Mar 12:00:00 UTC 2019
-const unsigned int nProtocolV07TestSwitchTime = 1541505600; // Tue 06 Nov 12:00:00 UTC 2018
-// Switch time for new BIPs from bitcoin 0.16.x
-const uint32_t nBTC16BIPsSwitchTime           = 1569931200; // Tue 01 Oct 12:00:00 UTC 2019
-const uint32_t nBTC16BIPsTestSwitchTime       = 1554811200; // Tue 09 Apr 12:00:00 UTC 2019
-// Protocol switch time for v0.9 kernel protocol
-const unsigned int nProtocolV09SwitchTime     = 1591617600; // Mon  8 Jun 12:00:00 UTC 2020
-const unsigned int nProtocolV09TestSwitchTime = 1581940800; // Mon 17 Feb 12:00:00 UTC 2020
-// Protocol switch time for v10 kernel protocol
-const unsigned int nProtocolV10SwitchTime     = 1635768000; // Mon  1 Nov 12:00:00 UTC 2021
-const unsigned int nProtocolV10TestSwitchTime = 1625140800; // Thu  1 Jul 12:00:00 UTC 2021
-// Protocol switch time for v12 kernel protocol
-const unsigned int nProtocolV12SwitchTime     = 1700276331; // Sat 18 Nov 02:58:51 UTC 2023
-const unsigned int nProtocolV12TestSwitchTime = 1671060214; // Wed 14 Dec 11:23:34 UTC 2022
-// Protocol switch time for v14 kernel protocol
-const unsigned int nProtocolV14SwitchTime     = 1717416000; // Mon  3 Jun 12:00:00 UTC 2024
-const unsigned int nProtocolV14TestSwitchTime = 1710720000; // Mon 18 Mar 00:00:00 UTC 2024
-// Protocol switch time for v15 kernel protocol
-const unsigned int nProtocolV15SwitchTime     = 1741780800; // Wed 12 Mar 12:00:00 UTC 2025
-const unsigned int nProtocolV15TestSwitchTime = 1734004800; // Thu 12 Dec 12:00:00 UTC 2024
+namespace {
+
+struct ProtocolActivation {
+    uint32_t main_time;
+    uint32_t test_time;
+    std::optional<int> main_height;
+    std::optional<int> test_height;
+    bool always_active_on_regtest;
+};
+
+constexpr auto NO_HEIGHT{std::nullopt};
+
+// Height thresholds apply to the previous block and retain the historical
+// strict-greater-than semantics. TESTNET4 and SIGNET intentionally use the
+// test-network schedule, while regtest exceptions are explicit per protocol.
+constexpr std::array<ProtocolActivation, static_cast<size_t>(Kernel::Protocol::MAX)> PROTOCOL_ACTIVATIONS{{
+    {1363800000, 1359781000, NO_HEIGHT, NO_HEIGHT, false}, // V03
+    {1399300000, 1395700000, NO_HEIGHT, NO_HEIGHT, false}, // V04
+    {1461700000, 1447700000, NO_HEIGHT, NO_HEIGHT, false}, // V05
+    {1513050000, 1508198400, 339678,    301251,    true},  // V06
+    {1552392000, 1541505600, NO_HEIGHT, NO_HEIGHT, false}, // V07
+    {1569931200, 1554811200, NO_HEIGHT, NO_HEIGHT, true},  // BTC16
+    {1591617600, 1581940800, NO_HEIGHT, NO_HEIGHT, false}, // V09
+    {1635768000, 1625140800, NO_HEIGHT, NO_HEIGHT, false}, // V10
+    {1700276331, 1671060214, NO_HEIGHT, NO_HEIGHT, true},  // V12
+    {1717416000, 1710720000, 770395,    573706,    true},  // V14
+    {1741780800, 1734004800, 801330,    612775,    true},  // V15
+}};
+
+bool UsesMainnetSchedule(ChainType chain_type)
+{
+    switch (chain_type) {
+    case ChainType::MAIN:
+        return true;
+    case ChainType::TESTNET:
+    case ChainType::SIGNET:
+    case ChainType::REGTEST:
+    case ChainType::TESTNET4:
+        return false;
+    }
+    assert(false);
+    return false;
+}
+
+} // namespace
+
+bool Kernel::IsProtocolActive(Protocol protocol, ChainType chain_type, uint32_t time,
+                              std::optional<int> previous_height)
+{
+    const auto protocol_index{static_cast<size_t>(protocol)};
+    assert(protocol_index < PROTOCOL_ACTIVATIONS.size());
+    if (protocol_index >= PROTOCOL_ACTIVATIONS.size()) return false;
+
+    const ProtocolActivation& activation{PROTOCOL_ACTIVATIONS[protocol_index]};
+    if (chain_type == ChainType::REGTEST && activation.always_active_on_regtest) return true;
+
+    const bool mainnet{UsesMainnetSchedule(chain_type)};
+    if (time < (mainnet ? activation.main_time : activation.test_time)) return false;
+
+    const std::optional<int>& activation_height{mainnet ? activation.main_height : activation.test_height};
+    return !activation_height || (previous_height && *previous_height > *activation_height);
+}
 
 // Hard checkpoints of stake modifiers to ensure they are deterministic
 static std::map<int, unsigned int> mapStakeModifierCheckpoints = {
@@ -110,107 +139,70 @@ static std::map<int, unsigned int> mapStakeModifierTestnetCheckpoints = {
 // Whether the given coinstake is subject to new v0.3 protocol
 bool IsProtocolV03(unsigned int nTimeCoinStake)
 {
-    return (nTimeCoinStake >= (Params().GetChainTypeString() != "main" ? nProtocolV03TestSwitchTime : nProtocolV03SwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::V03, Params().GetChainType(), nTimeCoinStake);
 }
 
 // Whether the given block is subject to new v0.4 protocol
 bool IsProtocolV04(unsigned int nTimeBlock)
 {
-    return (nTimeBlock >= (Params().GetChainTypeString() != "main" ? nProtocolV04TestSwitchTime : nProtocolV04SwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::V04, Params().GetChainType(), nTimeBlock);
 }
 
 // Whether the given transaction is subject to new v0.5 protocol
 bool IsProtocolV05(unsigned int nTimeTx)
 {
-    return (nTimeTx >= (Params().GetChainTypeString() != "main" ? nProtocolV05TestSwitchTime : nProtocolV05SwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::V05, Params().GetChainType(), nTimeTx);
 }
 
 // Whether a given block is subject to new v0.6 protocol
 // Test against previous block index! (always available)
 bool IsProtocolV06(const CBlockIndex* pindexPrev)
 {
-  if (Params().GetChainTypeString() == "regtest")
-      return true;
-
-  if (pindexPrev->nTime < (Params().GetChainTypeString() != "main" ? nProtocolV06TestSwitchTime : nProtocolV06SwitchTime))
-    return false;
-
-  // if 900 of the last 1,000 blocks are version 2 or greater (90/100 if testnet):
-  // Soft-forking PoS can be dangerous if the super majority is too low
-  // The stake majority will decrease after the fork
-  // since only coindays of updated nodes will get destroyed.
-  if ((Params().GetChainTypeString() == "main" && pindexPrev->nHeight > 339678) ||
-      (Params().GetChainTypeString() != "main" && pindexPrev->nHeight > 301251))
-    return true;
-
-  return false;
+    return Kernel::IsProtocolActive(Kernel::Protocol::V06, Params().GetChainType(),
+                                    pindexPrev->nTime, pindexPrev->nHeight);
 }
 
 // Whether a given transaction is subject to new v0.7 protocol
 bool IsProtocolV07(unsigned int nTimeTx)
 {
-    bool fTestNet = Params().GetChainTypeString() != "main";
-    return (nTimeTx >= (fTestNet? nProtocolV07TestSwitchTime : nProtocolV07SwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::V07, Params().GetChainType(), nTimeTx);
 }
 
 bool IsBTC16BIPsEnabled(uint32_t nTimeTx)
 {
-    if (Params().GetChainTypeString() == "regtest") return true;
-    bool fTestNet = Params().GetChainTypeString() != "main";
-    return (nTimeTx >= (fTestNet? nBTC16BIPsTestSwitchTime : nBTC16BIPsSwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::BTC16, Params().GetChainType(), nTimeTx);
 }
 
 // Whether a given timestamp is subject to new v0.9 protocol
 bool IsProtocolV09(unsigned int nTime)
 {
-  return (nTime >= (Params().GetChainTypeString() != "main" ? nProtocolV09TestSwitchTime : nProtocolV09SwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::V09, Params().GetChainType(), nTime);
 }
 
 // Whether a given timestamp is subject to new v10 protocol
 bool IsProtocolV10(unsigned int nTime)
 {
-  return (nTime >= (Params().GetChainTypeString() != "main" ? nProtocolV10TestSwitchTime : nProtocolV10SwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::V10, Params().GetChainType(), nTime);
 }
 
 // Whether a given block is subject to new v12 protocol
 bool IsProtocolV12(const CBlockIndex* pindexPrev)
 {
-  if (Params().GetChainTypeString() == "regtest")
-      return true;
-
-  return (pindexPrev->nTime >= (Params().GetChainTypeString() != "main" ? nProtocolV12TestSwitchTime : nProtocolV12SwitchTime));
+    return Kernel::IsProtocolActive(Kernel::Protocol::V12, Params().GetChainType(), pindexPrev->nTime);
 }
 
 // Whether a given block is subject to new v14 protocol
 bool IsProtocolV14(const CBlockIndex* pindexPrev)
 {
-  if (Params().GetChainTypeString() == "regtest")
-      return true;
-
-  if (pindexPrev->nTime < (Params().GetChainTypeString() != "main" ? nProtocolV14TestSwitchTime : nProtocolV14SwitchTime))
-      return false;
-
-  if ((Params().GetChainTypeString() == "main" && pindexPrev->nHeight > 770395) ||
-      (Params().GetChainTypeString() != "main" && pindexPrev->nHeight > 573706))
-    return true;
-
-  return false;
+    return Kernel::IsProtocolActive(Kernel::Protocol::V14, Params().GetChainType(),
+                                    pindexPrev->nTime, pindexPrev->nHeight);
 }
 
 // Whether a given block is subject to new v15 protocol
 bool IsProtocolV15(const CBlockIndex* pindexPrev)
 {
-  if (Params().GetChainTypeString() == "regtest")
-      return true;
-
-  if (pindexPrev->nTime < (Params().GetChainTypeString() != "main" ? nProtocolV15TestSwitchTime : nProtocolV15SwitchTime))
-      return false;
-
-  if ((Params().GetChainTypeString() == "main" && pindexPrev->nHeight > 801330) ||
-      (Params().GetChainTypeString() != "main" && pindexPrev->nHeight > 612775))
-    return true;
-
-  return false;
+    return Kernel::IsProtocolActive(Kernel::Protocol::V15, Params().GetChainType(),
+                                    pindexPrev->nTime, pindexPrev->nHeight);
 }
 
 // Get the last stake modifier and its generation time from a given block
@@ -231,6 +223,11 @@ static bool GetLastStakeModifier(const CBlockIndex* pindex, uint64_t& nStakeModi
 }
 
 namespace {
+
+bool NumericHashLess(const uint256& lhs, const uint256& rhs)
+{
+    return UintToArith256(lhs) < UintToArith256(rhs);
+}
 
 struct StakeModifierSelectionParams {
     std::array<int64_t, 64> sections{};
@@ -373,15 +370,7 @@ private:
         }
         std::sort(m_candidates.begin(), m_candidates.end(), [](const auto& a, const auto& b) {
             if (a.time != b.time) return a.time < b.time;
-
-            const uint32_t* pa = reinterpret_cast<const uint32_t*>(a.block_hash.data());
-            const uint32_t* pb = reinterpret_cast<const uint32_t*>(b.block_hash.data());
-            int count = 256 / 32;
-            do {
-                --count;
-                if (pa[count] != pb[count]) return pa[count] < pb[count];
-            } while (count);
-            return false;
+            return NumericHashLess(a.block_hash, b.block_hash);
         });
     }
 
@@ -395,6 +384,39 @@ private:
 };
 
 } // namespace
+
+const CBlockIndex* Kernel::FindStakeModifierV03(const CBlockIndex& from, const CBlockIndex& previous,
+                                                const CChain& active_chain, int64_t selection_interval)
+{
+    const int64_t minimum_time{from.GetBlockTime() + selection_interval};
+    int maximum_active_height{previous.nHeight};
+    const CBlockIndex* modifier_block{nullptr};
+
+    // First walk the candidate branch backwards until it rejoins the active
+    // chain. Replacing modifier_block leaves the oldest qualifying modifier on
+    // that branch selected.
+    for (const CBlockIndex* index = &previous;
+         index && index->nHeight >= from.nHeight && !active_chain.Contains(index);
+         index = index->pprev) {
+        if (index->GeneratedStakeModifier() && index->GetBlockTime() >= minimum_time) {
+            modifier_block = index;
+        }
+        maximum_active_height = index->nHeight - 1;
+    }
+
+    // Then walk forwards over only the active-chain prefix. If from is itself
+    // on the candidate branch, its height exceeds maximum_active_height and
+    // this phase is intentionally skipped.
+    for (const CBlockIndex* index = &from;
+         index && index->nHeight <= maximum_active_height;
+         index = active_chain.Next(index)) {
+        if (index->GeneratedStakeModifier() && index->GetBlockTime() >= minimum_time) {
+            return index;
+        }
+    }
+
+    return modifier_block;
+}
 
 // Stake Modifier (hash modifier of proof-of-stake):
 // The purpose of stake modifier is to prevent a txout (coin) owner from
@@ -514,11 +536,8 @@ static bool GetKernelStakeModifierV03(CBlockIndex* pindexPrev, uint256 hashBlock
     const StakeModifierSelectionParams selection_params{params};
     nStakeModifier = 0;
 
-    const CBlockIndex* pindexFrom;
-    {
-        LOCK(cs_main);
-        pindexFrom = chainstate.m_blockman.LookupBlockIndex(hashBlockFrom);
-    }
+    LOCK(cs_main);
+    const CBlockIndex* pindexFrom{chainstate.m_blockman.LookupBlockIndex(hashBlockFrom)};
 
     if (!pindexFrom)
         return error("GetKernelStakeModifier() : block not indexed");
@@ -527,50 +546,23 @@ static bool GetKernelStakeModifierV03(CBlockIndex* pindexPrev, uint256 hashBlock
     nStakeModifierTime = pindexFrom->GetBlockTime();
     const int64_t nStakeModifierSelectionInterval{selection_params.interval};
 
+    const CBlockIndex* modifier_block{Kernel::FindStakeModifierV03(
+        *pindexFrom, *pindexPrev, chainstate.m_chain, nStakeModifierSelectionInterval)};
 
-    // we need to iterate index forward but we cannot depend on chainActive.Next()
-    // because there is no guarantee that we are checking blocks in active chain.
-    // So, we construct a temporary chain that we will iterate over.
-    // pindexFrom - this block contains coins that are used to generate PoS
-    // pindexPrev - this is a block that is previous to PoS block that we are checking, you can think of it as tip of our chain
-    std::vector<CBlockIndex*> tmpChain;
-    int32_t nDepth = pindexPrev->nHeight - (pindexFrom->nHeight-1); // -1 is used to also include pindexFrom
-    tmpChain.reserve(nDepth);
-    CBlockIndex* it = pindexPrev;
-    for (int i=1; i<=nDepth && !chainstate.m_chain.Contains(it); i++) {
-        tmpChain.push_back(it);
-        it = it->pprev;
+    if (!modifier_block) {
+        // Reaching the candidate tip may happen while the node is still behind.
+        if (fPrintProofOfStake ||
+            pindexPrev->GetBlockTime() + params.nStakeMinAge - nStakeModifierSelectionInterval >
+                TicksSinceEpoch<std::chrono::seconds>(GetAdjustedTime())) {
+            return error("GetKernelStakeModifier() : reached best block %s at height %d from block %s",
+                         pindexPrev->GetBlockHash().ToString(), pindexPrev->nHeight, hashBlockFrom.ToString());
+        }
+        return false;
     }
-    std::reverse(tmpChain.begin(), tmpChain.end());
-    size_t n = 0;
 
-    const CBlockIndex* pindex = pindexFrom;
-    // loop to find the stake modifier later by a selection interval
-    while (nStakeModifierTime < pindexFrom->GetBlockTime() + nStakeModifierSelectionInterval)
-    {
-        const CBlockIndex* old_pindex = pindex;
-        pindex = nullptr;
-        if (!tmpChain.empty()) {
-            if (n < tmpChain.size())
-                pindex = (old_pindex->nHeight >= tmpChain[0]->nHeight - 1) ? tmpChain[n++] : chainstate.m_chain.Next(old_pindex);
-        } else {
-            pindex = chainstate.m_chain.Next(old_pindex);
-        }
-        if ((!tmpChain.empty() && n >= tmpChain.size()) || pindex == NULL)
-        {   // reached best block; may happen if node is behind on block chain
-            if (fPrintProofOfStake || (old_pindex->GetBlockTime() + params.nStakeMinAge - nStakeModifierSelectionInterval > TicksSinceEpoch<std::chrono::seconds>(GetAdjustedTime())))
-                return error("GetKernelStakeModifier() : reached best block %s at height %d from block %s",
-                    old_pindex->GetBlockHash().ToString(), old_pindex->nHeight, hashBlockFrom.ToString());
-            else
-                return false;
-        }
-        if (pindex->GeneratedStakeModifier())
-        {
-            nStakeModifierHeight = pindex->nHeight;
-            nStakeModifierTime = pindex->GetBlockTime();
-        }
-    }
-    nStakeModifier = pindex->nStakeModifier;
+    nStakeModifier = modifier_block->nStakeModifier;
+    nStakeModifierHeight = modifier_block->nHeight;
+    nStakeModifierTime = modifier_block->GetBlockTime();
     return true;
 }
 
