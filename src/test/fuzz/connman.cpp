@@ -179,7 +179,8 @@ FUZZ_TARGET(connman, .init = initialize_connman)
                     /*grant_outbound=*/{},
                     /*pszDest=*/fuzzed_data_provider.ConsumeBool() ? nullptr : random_string.c_str(),
                     /*conn_type=*/conn_type,
-                    /*use_v2transport=*/fuzzed_data_provider.ConsumeBool());
+                    /*use_v2transport=*/fuzzed_data_provider.ConsumeBool(),
+                    /*proxy_override=*/std::nullopt);
             },
             [&] {
                 connman.SetNetworkActive(fuzzed_data_provider.ConsumeBool());
