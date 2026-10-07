@@ -4,27 +4,33 @@ on:
   push:
     paths-ignore:
       - '**/*.md'
+
   pull_request:
     paths-ignore:
       - 'doc/**'
-      - 'contrib/**'
       - '**/*.md'
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   guix-base:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: github.event_name != 'pull_request'
     outputs:
       tag-hash: ${{ steps.detect.outputs.tag-hash }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             depends
             contrib/guix
 
-      - run: echo tag-hash="$(echo "${{ hashFiles('contrib/guix/manifest.scm', 'contrib/guix/patches/**') }}" | cut -c 1-8)" >> $GITHUB_OUTPUT
+      - run: |
+          HASH="${{ hashFiles('contrib/guix/Dockerfile', 'contrib/guix/manifest.scm', 'contrib/guix/patches/**', 'depends/Makefile', 'depends/hosts/**', 'depends/packages/**') }}"
+          echo "tag-hash=${HASH:0:8}" >> "$GITHUB_OUTPUT"
         id: detect
 
       - name: Set up Docker Buildx
@@ -60,7 +66,7 @@ jobs:
           cache-to: type=inline
 
   guix-host:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: guix-base
     if: github.event_name != 'pull_request'
     strategy:
@@ -75,7 +81,7 @@ jobs:
           - arm64-apple-darwin
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             depends
@@ -118,9 +124,9 @@ jobs:
           cache-to: type=inline
 
   binary:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [guix-base, guix-host]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && (github.event_name == 'pull_request' || (needs.guix-base.result == 'success' && needs.guix-host.result == 'success')) }}
     strategy:
       matrix:
         host:
@@ -132,7 +138,7 @@ jobs:
           - x86_64-apple-darwin
           - arm64-apple-darwin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -141,13 +147,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - run: echo tag-hash="$(echo "${{ hashFiles('contrib/guix/manifest.scm', 'contrib/guix/patches/**') }}" | cut -c 1-8)" >> $GITHUB_OUTPUT
+      - run: |
+          HASH="${{ hashFiles('contrib/guix/Dockerfile', 'contrib/guix/manifest.scm', 'contrib/guix/patches/**', 'depends/Makefile', 'depends/hosts/**', 'depends/packages/**') }}"
+          echo "tag-hash=${HASH:0:8}" >> "$GITHUB_OUTPUT"
         id: detect
 
       - run: |
           echo "TIMESTAMP=$(git log -1 --pretty=%ct)" >> $GITHUB_ENV
-          echo TARGET=ghcr.io/${{ github.repository }}/ci-tools/guix-host:${{ steps.detect.outputs.tag-hash }}-${{ matrix.host }} >> $GITHUB_ENV
-          echo TARGET_CACHE=ghcr.io/${{ github.repository }}/ci-tools/guix-host-depends-cache:${{ steps.detect.outputs.tag-hash }}-${{ matrix.host }} >> $GITHUB_ENV
+          echo TARGET=ghcr.io/${{ github.event_name == 'pull_request' && github.event.pull_request.base.repo.full_name || github.repository }}/ci-tools/guix-host:${{ steps.detect.outputs.tag-hash }}-${{ matrix.host }} >> $GITHUB_ENV
+          echo TARGET_CACHE=ghcr.io/${{ github.event_name == 'pull_request' && github.event.pull_request.base.repo.full_name || github.repository }}/ci-tools/guix-host-depends-cache:${{ steps.detect.outputs.tag-hash }}-${{ matrix.host }} >> $GITHUB_ENV
 
       - name: Build ${{ matrix.host }} Binaries
         shell: bash
@@ -233,10 +241,10 @@ jobs:
           if-no-files-found: error
 
   docker:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: binary
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: peercoin/packaging
 
@@ -320,9 +328,11 @@ jobs:
             ghcr.io/${{ github.repository }}/peercoind:${{ steps.detect.outputs.tag-name }}
 
   release:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: binary
     if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release-')
+    permissions:
+      contents: write
     steps:
       - name: Detect env
         id: detect
@@ -351,7 +361,7 @@ jobs:
         if: steps.detect.outputs.tag-name != 'noop'
         run: sudo apt-get update && sudo apt-get install -y mktorrent gpg bash
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.detect.outputs.tag-name != 'noop'
 
       - uses: actions/download-artifact@v4

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.13.0-labs
 
-FROM alpine:3.21 AS guix
+FROM alpine:3.24 AS guix
 
 RUN apk --no-cache --update add \
       bash \
@@ -11,10 +11,10 @@ RUN apk --no-cache --update add \
       make \
       shadow
 
-ARG guix_download_path=ftp://ftp.gnu.org/gnu/guix
-ARG guix_version=1.4.0
-ARG guix_checksum_aarch64=72d807392889919940b7ec9632c45a259555e6b0942ea7bfd131101e08ebfcf4
-ARG guix_checksum_x86_64=236ca7c9c5958b1f396c2924fcc5bc9d6fdebcb1b4cf3c7c6d46d4bf660ed9c9
+ARG guix_download_path=https://ftp.gnu.org/gnu/guix
+ARG guix_version=1.5.0
+ARG guix_checksum_aarch64=a5d58b1d0294cad6adb1f2aff627d37feb5db763fdffbceb8551f2b12123cf39
+ARG guix_checksum_x86_64=aa41025489c5061543e9c48873eaa829b900b2da75d40f9648913622f5f47817
 ARG builder_count=32
 
 ENV PATH=/root/.config/guix/current/bin:$PATH
@@ -55,9 +55,9 @@ CMD ["/root/.config/guix/current/bin/guix-daemon","--build-users-group=guixbuild
 
 FROM guix AS guix-base
 
-ARG guix_dist_url="https://git.savannah.gnu.org/git/guix.git"
+ARG guix_dist_url="https://codeberg.org/guix/guix.git"
 ARG substitute_urls="https://ci.guix.gnu.org"
-ARG time_machine_commit=998eda3067c7d21e0d9bb3310d2f5a14b8f1c681
+ARG time_machine_commit=5cb84f2013c5b1e48a7d0e617032266f1e6059e2
 
 ENV GUIX_DIST_URL="${guix_dist_url}"
 ENV TIME_MACHINE_COMMIT="${time_machine_commit}"
