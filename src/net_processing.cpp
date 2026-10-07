@@ -586,7 +586,7 @@ private:
      *  address discouraged. */
     void Misbehaving(Peer& peer, const std::string& message);
 
-    void Misbehaving(CNode& node, const std::string& message)
+    void Misbehaving(CNode& node, const std::string& message) EXCLUSIVE_LOCKS_REQUIRED(!m_peer_mutex)
     {
         PeerRef peer{GetPeerRef(node.GetId())};
         if (!peer) return;
@@ -727,7 +727,8 @@ private:
     void UpdatePeerStateForReceivedHeaders(CNode& pfrom, Peer& peer, const CBlockIndex& last_header, bool received_new_header, bool may_have_more_headers)
         EXCLUSIVE_LOCKS_REQUIRED(g_msgproc_mutex);
 
-    void SendBlockTransactions(CNode& pfrom, Peer& peer, const CBlock& block, const BlockTransactionsRequest& req);
+    void SendBlockTransactions(CNode& pfrom, Peer& peer, const CBlock& block, const BlockTransactionsRequest& req)
+        EXCLUSIVE_LOCKS_REQUIRED(!m_peer_mutex);
 
     /** Send a message to a peer */
     void PushMessage(CNode& node, CSerializedNetMsg&& msg) const { m_connman.PushMessage(&node, std::move(msg)); }
@@ -977,7 +978,7 @@ private:
 
     /** Process compact block txns  */
     void ProcessCompactBlockTxns(CNode& pfrom, Peer& peer, const BlockTransactions& block_transactions)
-        EXCLUSIVE_LOCKS_REQUIRED(g_msgproc_mutex, !m_most_recent_block_mutex);
+        EXCLUSIVE_LOCKS_REQUIRED(!m_peer_mutex, g_msgproc_mutex, !m_most_recent_block_mutex);
 
     /**
      * Schedule an INV for a transaction to be sent to the given peer (via `PushMessage()`).
@@ -2504,7 +2505,7 @@ void PeerManagerImpl::ProcessGetBlockData(CNode& pfrom, Peer& peer, const CInv& 
             // download node to accept as orphan (proof-of-stake
             // block might be rejected by stake connection check)
             std::vector<CInv> vInv;
-            vInv.push_back(CInv(MSG_BLOCK, GetLastBlockIndex(m_chainman.ActiveChain().Tip(), false)->GetBlockHash()));
+            vInv.push_back(CInv(MSG_BLOCK, GetLastBlockIndex(tip, false)->GetBlockHash()));
             MakeAndPushMessage(pfrom, NetMsgType::INV, vInv);
             peer.m_continuation_block.SetNull();
         }
