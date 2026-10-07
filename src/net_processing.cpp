@@ -177,10 +177,6 @@ static constexpr unsigned int INVENTORY_BROADCAST_TARGET = INVENTORY_BROADCAST_P
 static constexpr unsigned int INVENTORY_BROADCAST_MAX = 1000;
 static_assert(INVENTORY_BROADCAST_MAX >= INVENTORY_BROADCAST_TARGET, "INVENTORY_BROADCAST_MAX too low");
 static_assert(INVENTORY_BROADCAST_MAX <= node::MAX_PEER_TX_ANNOUNCEMENTS, "INVENTORY_BROADCAST_MAX too high");
-/** Average delay between feefilter broadcasts in seconds. */
-static constexpr auto AVG_FEEFILTER_BROADCAST_INTERVAL{10min};
-/** Maximum feefilter broadcast delay after significant change. */
-static constexpr auto MAX_FEEFILTER_CHANGE_DELAY{5min};
 /** Maximum number of compact filters that may be requested with one getcfilters. See BIP 157. */
 static constexpr uint32_t MAX_GETCFILTERS_SIZE = 1000;
 /** Maximum number of cf hashes that may be requested with one getcfheaders. See BIP 157. */
@@ -762,12 +758,7 @@ private:
      */
     void RelayAddress(NodeId originator, const CAddress& addr, bool fReachable) EXCLUSIVE_LOCKS_REQUIRED(!m_peer_mutex, g_msgproc_mutex);
 
-    /** Send `feefilter` message. */
-    void MaybeSendFeefilter(CNode& node, Peer& peer, std::chrono::microseconds current_time) EXCLUSIVE_LOCKS_REQUIRED(g_msgproc_mutex);
-
     FastRandomContext m_rng GUARDED_BY(NetEventsInterface::g_msgproc_mutex);
-
-    FeeFilterRounder m_fee_filter_rounder GUARDED_BY(NetEventsInterface::g_msgproc_mutex);
 
     const CChainParams& m_chainparams;
     CConnman& m_connman;
@@ -2022,7 +2013,6 @@ PeerManagerImpl::PeerManagerImpl(CConnman& connman, AddrMan& addrman,
                                  BanMan* banman, ChainstateManager& chainman,
                                  CTxMemPool& pool, node::Warnings& warnings, Options opts)
     : m_rng{opts.deterministic_rng},
-      m_fee_filter_rounder{CFeeRate{DEFAULT_MIN_RELAY_TX_FEE}, m_rng},
       m_chainparams(chainman.GetParams()),
       m_connman(connman),
       m_addrman(addrman),
@@ -5785,50 +5775,6 @@ void PeerManagerImpl::MaybeSendSendHeaders(CNode& node, Peer& peer)
         }
     }
 }
-/*
-void PeerManagerImpl::MaybeSendFeefilter(CNode& pto, std::chrono::microseconds current_time)
-{
-    if (m_opts.ignore_incoming_txs) return;
-    if (pto.GetCommonVersion() < FEEFILTER_VERSION) return;
-    // peers with the forcerelay permission should not filter txs to us
-    if (pto.HasPermission(NetPermissionFlags::ForceRelay)) return;
-    // Don't send feefilter messages to outbound block-relay-only peers since they should never announce
-    // transactions to us, regardless of feefilter state.
-    if (pto.IsBlockOnlyConn()) return;
-
-    CAmount currentFilter = m_mempool.GetMinFee().GetFeePerK();
-
-    if (m_chainman.IsInitialBlockDownload()) {
-        // Received tx-inv messages are discarded when the active
-        // chainstate is in IBD, so tell the peer to not send them.
-        currentFilter = MAX_MONEY;
-    } else {
-        static const CAmount MAX_FILTER{m_fee_filter_rounder.round(MAX_MONEY)};
-        if (peer.m_fee_filter_sent == MAX_FILTER) {
-            // Send the current filter if we sent MAX_FILTER previously
-            // and made it out of IBD.
-            peer.m_next_send_feefilter = 0us;
-        }
-    }
-    if (current_time > peer.m_next_send_feefilter) {
-        CAmount filterToSend = m_fee_filter_rounder.round(currentFilter);
-        // We always have a fee filter of at least the min relay fee
-        filterToSend = std::max(filterToSend, m_mempool.m_opts.min_relay_feerate.GetFeePerK());
-        if (filterToSend != peer.m_fee_filter_sent) {
-            MakeAndPushMessage(pto, NetMsgType::FEEFILTER, filterToSend);
-            peer.m_fee_filter_sent = filterToSend;
-        }
-        peer.m_next_send_feefilter = current_time + m_rng.rand_exp_duration(AVG_FEEFILTER_BROADCAST_INTERVAL);
-    }
-    // If the fee filter has changed substantially and it's still more than MAX_FEEFILTER_CHANGE_DELAY
-    // until scheduled broadcast, then move the broadcast to within MAX_FEEFILTER_CHANGE_DELAY.
-    else if (current_time + MAX_FEEFILTER_CHANGE_DELAY < peer.m_next_send_feefilter &&
-                (currentFilter < 3 * peer.m_fee_filter_sent / 4 || currentFilter > 4 * peer.m_fee_filter_sent / 3)) {
-        peer.m_next_send_feefilter = current_time + m_rng.randrange<std::chrono::microseconds>(MAX_FEEFILTER_CHANGE_DELAY);
-    }
-}
-*/
-
 namespace {
 class CompareInvMempoolOrder
 {
@@ -6377,6 +6323,5 @@ bool PeerManagerImpl::SendMessages(CNode& node)
         if (!vGetData.empty())
             MakeAndPushMessage(node, NetMsgType::GETDATA, vGetData);
     } // release cs_main
-    //MaybeSendFeefilter(*pto, *peer, current_time);
     return true;
 }

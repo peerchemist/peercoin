@@ -6360,7 +6360,7 @@ util::Result<void> ChainstateManager::PopulateAndValidateSnapshot(
 
     assert(index);
     assert(index == snapshot_start_block);
-    index->nChainTx = au_data.nChainTx;
+    index->nChainTx = au_data.m_chain_tx_count;
 
     LogInfo("[snapshot] validated snapshot (%.2f MB)",
         coins_cache.DynamicMemoryUsage() / (1000 * 1000));
@@ -6827,4 +6827,3 @@ const CChainParams& Chainstate::GetParams() const { return m_chainman.GetParams(
 const Consensus::Params& Chainstate::GetConsensus() const { return m_chainman.GetConsensus(); }
 bool Chainstate::IsInitialBlockDownload() const { return m_chainman.IsInitialBlockDownload(); }
 kernel::Notifications& Chainstate::GetNotifications() const { return m_chainman.GetNotifications(); }
-

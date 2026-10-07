@@ -167,6 +167,7 @@ if(ENABLE_WALLET)
     target_link_libraries(bitcoin-wallet
       core_interface
       bitcoin_wallet
+      bitcoin_node
       bitcoin_common
       bitcoin_util
       Boost::headers

@@ -425,6 +425,7 @@ private:
     std::string ChainToString() const
     {
         switch (gArgs.GetChainType()) {
+        case ChainType::TESTNET4: return " testnet4";
         case ChainType::TESTNET: return " testnet";
         case ChainType::SIGNET: return " signet";
         case ChainType::REGTEST: return " regtest";
