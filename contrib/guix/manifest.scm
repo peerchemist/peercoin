@@ -14,6 +14,7 @@
              (gnu packages llvm)
              (gnu packages mingw)
              (gnu packages ninja)
+             ((gnu packages perl) #:select (perl))
              (gnu packages pkg-config)
              ((gnu packages python) #:select (python-minimal))
              ((gnu packages python-build) #:select (python-poetry-core))
@@ -558,6 +559,7 @@ inspecting signatures in Mach-O binaries.")
         gnu-make
         ninja
         ;; Scripting
+        perl
         python-minimal ;; (3.10)
         ;; Git
         git-minimal
