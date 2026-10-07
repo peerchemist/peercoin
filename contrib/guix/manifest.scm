@@ -42,6 +42,20 @@ FILE-NAME found in ./patches relative to the current file."
 
 (define building-on (string-append "--build=" (list-ref (string-split (%current-system) #\-) 0) "-guix-linux-gnu"))
 
+(define openssl-lts
+  ;; Keep Guix's signing tools on the same supported LTS series as the
+  ;; statically linked target dependency from depends/packages/openssl.mk.
+  (package
+    (inherit openssl)
+    (version "3.5.9")
+    (source
+     (origin
+       (inherit (package-source openssl))
+       (uri "https://www.openssl.org/source/openssl-3.5.9.tar.gz")
+       (sha256
+        (base32
+         "16l5xgqp1ii4vffbr8ap2wqbn8jqrm6x6aflzdvhvw7fw815cgv0"))))))
+
 (define (make-cross-toolchain target
                               base-gcc-for-libc
                               base-kernel-headers
@@ -228,7 +242,7 @@ and abstract ELF, PE and MachO formats.")
                   (invoke "faketime" "-f" "@2025-01-01 00:00:00" ;; Tests fail after 2025.
                           "ctest" "--output-on-failure" "--no-tests=error")
                   (format #t "test suite not run~%")))))))
-    (inputs (list libfaketime openssl))
+    (inputs (list libfaketime openssl-lts))
     (home-page "https://github.com/mtrojnar/osslsigncode")
     (synopsis "Authenticode signing and timestamping tool")
     (description "osslsigncode is a small tool that implements part of the
@@ -285,7 +299,7 @@ thus should be able to compile on most platforms where these exist.")
             (files '("etc/ssl/certs/ca-certificates.crt")))))
 
     (propagated-inputs
-      (list python-asn1crypto openssl))
+      (list python-asn1crypto openssl-lts))
     (arguments
      `(#:phases
        (modify-phases %standard-phases
