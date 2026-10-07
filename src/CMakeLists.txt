@@ -301,16 +301,17 @@ if(WITH_EMBEDDED_ASMAP)
   )
 endif()
 
-# Bitcoin wrapper executable that can call other executables.
+# Peercoin wrapper executable that can call other executables.
 if(BUILD_BITCOIN_BIN)
   add_executable(bitcoin bitcoin.cpp)
   add_windows_resources(bitcoin bitcoin-res.rc)
   add_windows_application_manifest(bitcoin)
   target_link_libraries(bitcoin core_interface bitcoin_common bitcoin_util)
-  install_binary_component(bitcoin HAS_MANPAGE)
+  set_target_properties(bitcoin PROPERTIES OUTPUT_NAME peercoin)
+  install_binary_component(bitcoin)
 endif()
 
-# Bitcoin Core bitcoind.
+# Peercoin daemon.
 if(BUILD_DAEMON)
   add_executable(bitcoind
     bitcoind.cpp
