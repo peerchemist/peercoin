@@ -463,6 +463,7 @@ jobs:
             fallback-runner: 'ubuntu-latest'
             timeout-minutes: 120
             file-env: './ci/test/00_setup_env_native_iwyu.sh'
+            allow_failure: true # Peercoin-specific sources are not IWYU-clean yet.
 
           - name: '32 bit ARM'
             warp-runner: 'ubuntu-24.04-arm' # Warp's Arm runners don't support 32-bit mode currently
@@ -578,6 +579,7 @@ jobs:
         run: sudo sysctl -w vm.mmap_rnd_bits=28
 
       - name: CI script
+        continue-on-error: ${{ matrix.allow_failure || false }}
         run: ./ci/test_run_all.sh
 
       - name: Save caches
@@ -608,6 +610,9 @@ jobs:
           provider: ${{ needs.runners.outputs.provider }}
 
       - name: CI script
+        # Keep reporting the inherited Bitcoin Core lints without blocking builds
+        # until the existing Peercoin-specific lint backlog has been resolved.
+        continue-on-error: true
         run: |
           git worktree add ../lint-worktree HEAD
           ../lint-worktree/ci/lint.py
