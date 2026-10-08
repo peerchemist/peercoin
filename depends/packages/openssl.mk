@@ -41,7 +41,7 @@ $(package)_config_opts_x86_64_linux=linux-x86_64
 $(package)_config_opts_i686_linux=linux-generic32
 $(package)_config_opts_arm_linux=linux-generic32
 $(package)_config_opts_armv7l_linux=linux-generic32
-#$(package)_config_opts_aarch64_darwin=linux-generic64
+$(package)_config_opts_aarch64_darwin=darwin64-arm64-cc no-asm
 $(package)_config_opts_aarch64_linux=linux-generic64
 $(package)_config_opts_mipsel_linux=linux-generic32
 $(package)_config_opts_mips_linux=linux-generic32
@@ -51,11 +51,6 @@ $(package)_config_opts_riscv64_linux=linux-generic64
 $(package)_config_opts_x86_64_darwin=darwin64-x86_64-cc
 $(package)_config_opts_x86_64_mingw32=mingw64
 $(package)_config_opts_i686_mingw32=mingw
-ifeq ($(host_os)_$(host_arch),darwin_aarch64)
-$(package)_config_opts:=darwin64-arm64-cc no-asm
-else
-$(package)_config_opts+=$($(package)_config_opts_$(host_os)_$(host_arch))
-endif
 endef
 
 define $(package)_preprocess_cmds
@@ -72,9 +67,7 @@ endef
 
 define $(package)_stage_cmds
   sed -i.old "s/^INSTALLTOP=/INSTALLTOP?=/g" Makefile && \
-  $($(package)_stage_env) $(MAKE) INSTALLTOP=$($(package)_staging_dir)/$(host_prefix) install_sw && \
-  find $($(package)_staging_dir)/$(host_prefix)/lib -name "*.so*" -delete 2>/dev/null || true && \
-  find $($(package)_staging_dir)/$(host_prefix)/lib -name "*.dylib*" -delete 2>/dev/null || true
+  $($(package)_stage_env) $(MAKE) INSTALLTOP=$($(package)_staging_dir)/$(host_prefix) install_dev
 endef
 
 define $(package)_postprocess_cmds
