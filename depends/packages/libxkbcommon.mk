@@ -46,8 +46,9 @@ $(package)_endian_powerpc64=big
 $(package)_endian_powerpc64le=little
 $(package)_cross_file=--cross-file=depends-cross-file.ini
 
+# LDFLAGS are supplied through Meson; putting them in the compiler wrapper breaks Clang compile-only probes.
 define $(package)_preprocess_cmds
-  printf '%s\n' '#!/bin/sh' 'exec $($(package)_cc) $($(package)_cppflags) $($(package)_cflags) $($(package)_ldflags) "$$$$@"' > depends-cc && \
+  printf '%s\n' '#!/bin/sh' 'exec $($(package)_cc) $($(package)_cppflags) $($(package)_cflags) "$$$$@"' > depends-cc && \
   chmod +x depends-cc && \
   printf '%s\n' \
     '[binaries]' \
