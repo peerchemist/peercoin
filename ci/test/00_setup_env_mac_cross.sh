@@ -12,6 +12,7 @@ export CONTAINER_NAME=ci_macos_cross
 export CI_IMAGE_NAME_TAG="mirror.gcr.io/debian:trixie" # Check that https://packages.debian.org/trixie/clang (version 19, similar to guix) can cross-compile
 export HOST=arm64-apple-darwin
 export PACKAGES="clang lld llvm zip"
+export PIP_PACKAGES="--break-system-packages ds-store mac-alias"
 export XCODE_VERSION=26.1.1
 export XCODE_BUILD_ID=17B100
 export RUN_UNIT_TESTS=false
