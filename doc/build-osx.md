@@ -1,6 +1,6 @@
 # macOS Build Guide
 
-**Updated for MacOS [11.2](https://www.apple.com/macos/big-sur/)**
+**Peercoin supports macOS 15 and newer.**
 
 This guide describes how to build peercoind, command-line utilities, and GUI on macOS
 

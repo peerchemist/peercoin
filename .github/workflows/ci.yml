@@ -126,7 +126,7 @@ jobs:
     name: ${{ matrix.job-name }}
     # Use any image to support the xcode-select below, but hardcode version to avoid silent upgrades (and breaks).
     # See: https://github.com/actions/runner-images#available-images.
-    runs-on: macos-15
+    runs-on: macos-26
 
     # When a contributor maintains a fork of the repo, any pull request they make
     # to their own fork, or to the main repository, will trigger two CI runs:
@@ -165,11 +165,9 @@ jobs:
 
       - name: Clang version
         run: |
-          # Use the latest Xcode supported by the version of macOS denoted in
-          # doc/release-notes-empty-template.md and providing at least the
-          # minimum clang version denoted in doc/dependencies.md.
-          # See: https://developer.apple.com/documentation/xcode-release-notes/xcode-16_2-release-notes
-          sudo xcode-select --switch /Applications/Xcode_16.2.app
+          # Match the Xcode release used by the macOS depends build.
+          # See: depends/hosts/darwin.mk.
+          sudo xcode-select --switch /Applications/Xcode_26.1.1.app
           clang --version
 
       - name: Install Homebrew packages

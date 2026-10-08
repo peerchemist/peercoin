@@ -10,8 +10,7 @@ endif
 $(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 $(package)_freebsd_dependencies := $($(package)_linux_dependencies)
 $(package)_patches_path := $(qt_details_patches_path)
-$(package)_patches := cocoa_compat.patch
-$(package)_patches += dont_hardcode_pwd.patch
+$(package)_patches := dont_hardcode_pwd.patch
 $(package)_patches += qtbase_avoid_qmain.patch
 $(package)_patches += qtbase_platformsupport.patch
 $(package)_patches += qtbase_plugins_cocoa.patch
@@ -269,7 +268,6 @@ endef
 endif
 
 define $(package)_preprocess_cmds
-  patch -p1 -i $($(package)_patch_dir)/cocoa_compat.patch && \
   patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase_avoid_qmain.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase_platformsupport.patch && \
