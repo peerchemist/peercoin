@@ -10,21 +10,11 @@ endif
 $(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 $(package)_freebsd_dependencies := $($(package)_linux_dependencies)
 $(package)_patches_path := $(qt_details_patches_path)
-$(package)_patches := dont_hardcode_pwd.patch
-$(package)_patches += qtbase_avoid_qmain.patch
-$(package)_patches += qtbase_platformsupport.patch
-$(package)_patches += qtbase_plugins_cocoa.patch
+$(package)_patches := qtbase_avoid_qmain.patch
 $(package)_patches += qtbase_skip_tools.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
 $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += static_fixes.patch
-$(package)_patches += fix-gcc16-qcompare.patch
-$(package)_patches += fix-gcc16-sfinae-qregularexpression.patch
-$(package)_patches += fix-gcc16-sfinae-qchar.patch
-$(package)_patches += fix-gcc16-sfinae-qbitarray.patch
-$(package)_patches += fix-gcc16-sfinae-qanystringview.patch
-$(package)_patches += fix-macos26-qyield.patch
-$(package)_patches += fix-qbytearray-include.patch
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -131,7 +121,6 @@ ifeq ($(host),$(build))
 $(package)_config_opts += -feature-linguist
 $(package)_config_opts += -no-feature-assistant
 $(package)_config_opts += -no-feature-clang
-$(package)_config_opts += -no-feature-clangcpp
 $(package)_config_opts += -no-feature-designer
 $(package)_config_opts += -no-feature-pixeltool
 $(package)_config_opts += -no-feature-qdoc
@@ -147,6 +136,7 @@ $(package)_config_opts_darwin += -no-pkg-config
 
 $(package)_config_opts_linux := -fontconfig
 $(package)_config_opts_linux += -no-feature-process
+$(package)_config_opts_linux += -no-feature-wayland
 $(package)_config_opts_linux += -no-feature-xlib
 $(package)_config_opts_linux += -no-xcb-xlib
 $(package)_config_opts_linux += -pkg-config
@@ -268,20 +258,10 @@ endef
 endif
 
 define $(package)_preprocess_cmds
-  patch -p1 -i $($(package)_patch_dir)/dont_hardcode_pwd.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase_avoid_qmain.patch && \
-  patch -p1 -i $($(package)_patch_dir)/qtbase_platformsupport.patch && \
-  patch -p1 -i $($(package)_patch_dir)/qtbase_plugins_cocoa.patch && \
   patch -p1 -i $($(package)_patch_dir)/qtbase_skip_tools.patch && \
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch && \
-  patch -p1 -i $($(package)_patch_dir)/static_fixes.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix-gcc16-qcompare.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix-gcc16-sfinae-qregularexpression.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix-gcc16-sfinae-qchar.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix-gcc16-sfinae-qbitarray.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix-gcc16-sfinae-qanystringview.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix-macos26-qyield.patch && \
-  patch -p1 -i $($(package)_patch_dir)/fix-qbytearray-include.patch
+  patch -p1 -i $($(package)_patch_dir)/static_fixes.patch
 endef
 ifeq ($(host),$(build))
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch
