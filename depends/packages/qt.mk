@@ -114,6 +114,7 @@ $(package)_config_opts += -no-feature-vulkan
 $(package)_config_opts += -no-feature-androiddeployqt
 $(package)_config_opts += -no-feature-macdeployqt
 $(package)_config_opts += -no-feature-qmake
+$(package)_config_opts += -no-feature-wasmdeployqt
 $(package)_config_opts += -no-feature-windeployqt
 
 ifeq ($(host),$(build))
