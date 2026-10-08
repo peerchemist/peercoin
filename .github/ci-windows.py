@@ -27,8 +27,8 @@ def run(cmd, **kwargs):
 GENERATE_OPTIONS = {
     "standard": [
         "-DBUILD_BENCH=ON",
-        "-DBUILD_KERNEL_LIB=ON",
-        "-DBUILD_UTIL_CHAINSTATE=ON",
+        "-DBUILD_KERNEL_LIB=OFF",
+        "-DBUILD_UTIL_CHAINSTATE=OFF",
         "-DCMAKE_COMPILE_WARNING_AS_ERROR=ON",
     ],
     "fuzz": [
