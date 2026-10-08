@@ -744,7 +744,7 @@ bool CheckProofOfStake(BlockValidationState &state, CBlockIndex* pindexPrev, con
     }
 
     if (txPrev->GetHash() != txin.prevout.hash)
-        return error("%s() : txid mismatch in CheckProofOfStake()", __PRETTY_FUNCTION__);
+        return error("%s() : txid mismatch in CheckProofOfStake()", __func__);
     if (txin.prevout.n >= txPrev->vout.size())
         return error("CheckProofOfStake() : invalid kernel prevout.n");
 
