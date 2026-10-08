@@ -37,7 +37,6 @@ $(package)_extra_sources += $($(package)_top_cmake_qttoplevelhelpers_file_name)-
 define $(package)_set_vars
 # Build options.
 $(package)_config_opts := -release
-$(package)_config_opts += -make tools
 $(package)_config_opts += -no-pkg-config
 $(package)_config_opts += -no-reduce-relocations
 $(package)_config_opts += -no-use-gold-linker
