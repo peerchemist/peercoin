@@ -144,6 +144,38 @@ static std::optional<int64_t> GetSignedTxinWeight(const CWallet* wallet, const C
     return {};
 }
 
+/** Infer the serialized size of an input with its maximum-size satisfaction. */
+static std::optional<int64_t> GetSignedTxinSerializedSize(const CWallet* wallet, const CCoinControl* coin_control,
+                                                          const CTxIn& txin, const CTxOut& txo, const bool tx_is_segwit,
+                                                          const bool can_grind_r)
+{
+    // An externally supplied weight does not contain enough information to
+    // separate the base and witness sizes.
+    if (coin_control && coin_control->GetInputWeight(txin.prevout)) return {};
+
+    const std::unique_ptr<Descriptor> desc{GetDescriptor(wallet, coin_control, txo.scriptPubKey)};
+    if (!desc) return {};
+
+    const auto sat_weight{desc->MaxSatisfactionWeight(!can_grind_r || UseMaxSig(txin, coin_control))};
+    const auto elems_count{desc->MaxSatisfactionElems()};
+    const auto output_type{desc->GetOutputType()};
+    if (!sat_weight || !elems_count || !output_type) return {};
+
+    static constexpr int64_t TXIN_FIXED_SIZE{32 + 4 + 4};
+    if (*output_type == OutputType::LEGACY) {
+        if (*sat_weight % WITNESS_SCALE_FACTOR != 0) return {};
+        const int64_t scriptsig_size{*sat_weight / WITNESS_SCALE_FACTOR};
+        return TXIN_FIXED_SIZE + GetSizeOfCompactSize(scriptsig_size) + scriptsig_size + (tx_is_segwit ? 1 : 0);
+    }
+    if (*output_type == OutputType::BECH32 || *output_type == OutputType::BECH32M) {
+        return TXIN_FIXED_SIZE + 1 + GetSizeOfCompactSize(*elems_count) + *sat_weight;
+    }
+
+    // P2SH-wrapped witness spends mix base and witness bytes in sat_weight.
+    // Let the dummy-signature fallback below calculate those inputs.
+    return {};
+}
+
 /** Return the maximum serialized size of a transaction after signing.
  *
  * Peercoin's consensus fee is based on the full serialized size, including
@@ -173,6 +205,7 @@ static std::optional<int64_t> CalculateMaximumSignedTxSerializedSize(const CTran
         const bool use_max_sig{!wallet->CanGrindR() || UseMaxSig(max_signed_tx.vin[i], coin_control)};
         const BaseSignatureCreator& creator{use_max_sig ? DUMMY_MAXIMUM_SIGNATURE_CREATOR : DUMMY_SIGNATURE_CREATOR};
         if (!ProduceSignature(providers, creator, txouts[i].scriptPubKey, sigdata)) return {};
+
         UpdateInput(max_signed_tx.vin[i], sigdata);
     }
 
@@ -197,17 +230,31 @@ TxSize CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *walle
     // Add the size of the transaction outputs.
     for (const auto& txo : tx.vout) weight += GetSerializeSize(txo) * WITNESS_SCALE_FACTOR;
 
+    int64_t serialized_size = 4 + 4 + GetSizeOfCompactSize(tx.vin.size()) + GetSizeOfCompactSize(tx.vout.size());
+    if (is_segwit) serialized_size += 2;
+    for (const auto& txo : tx.vout) serialized_size += GetSerializeSize(txo);
+
+    bool have_serialized_size{true};
     // Add the size of the transaction inputs as if they were signed.
     for (uint32_t i = 0; i < txouts.size(); i++) {
         const auto txin_weight = GetSignedTxinWeight(wallet, coin_control, tx.vin[i], txouts[i], is_segwit, wallet->CanGrindR());
         if (!txin_weight) return TxSize{-1, -1, -1};
         assert(*txin_weight > -1);
         weight += *txin_weight;
+
+        const auto txin_size{GetSignedTxinSerializedSize(wallet, coin_control, tx.vin[i], txouts[i], is_segwit, wallet->CanGrindR())};
+        if (txin_size) {
+            serialized_size += *txin_size;
+        } else {
+            have_serialized_size = false;
+        }
     }
 
     // It's ok to use 0 as the number of sigops since we never create any pathological transaction.
-    const auto serialized_size{CalculateMaximumSignedTxSerializedSize(tx, wallet, txouts, coin_control)};
-    return TxSize{GetVirtualTransactionSize(weight, 0, 0), weight, serialized_size.value_or(-1)};
+    if (!have_serialized_size) {
+        serialized_size = CalculateMaximumSignedTxSerializedSize(tx, wallet, txouts, coin_control).value_or(-1);
+    }
+    return TxSize{GetVirtualTransactionSize(weight, 0, 0), weight, serialized_size};
 }
 
 TxSize CalculateMaximumSignedTxSize(const CTransaction &tx, const CWallet *wallet, const CCoinControl* coin_control)
