@@ -131,6 +131,10 @@ endif()
 
 
 # Set configuration options for the main build system.
+# Depends builds static OpenSSL libraries. FindOpenSSL needs this to propagate
+# their system library dependencies, including crypt32 on Windows.
+set(OPENSSL_USE_STATIC_LIBS TRUE)
+
 # The depends/Makefile can generate values with "not-set"
 # semantics as empty strings or strings containing only spaces.
 # Therefore, MATCHES must be used rather than STREQUAL.
