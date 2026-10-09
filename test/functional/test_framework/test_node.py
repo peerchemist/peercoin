@@ -798,12 +798,12 @@ class TestNodeCLI():
         """Run peercoin-cli command. Deserializes returned string as python object."""
         pos_args = [arg_to_cli(arg) for arg in args]
         named_args = [str(key) + "=" + arg_to_cli(value) for (key, value) in kwargs.items()]
-        assert not (pos_args and named_args), "Cannot use positional arguments and named arguments in the same peercoin-cli call"
         p_args = [self.binary, "-datadir=" + self.datadir] + self.options
         if named_args:
             p_args += ["-named"]
         if command is not None:
             p_args += [command]
+        # -named also accepts leading positional arguments.
         cli_args = pos_args + named_args
         cli_input = self.input
         self.log.debug("Running peercoin-cli {}".format((p_args + cli_args)[2:]))

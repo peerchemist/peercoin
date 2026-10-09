@@ -116,11 +116,12 @@ class TestBitcoinCli(BitcoinTestFramework):
 
     def test_large_arguments(self):
         """Exercise arguments that exceed the OS command-line size limit."""
-        self.log.info("Test large positional and named CLI arguments")
+        self.log.info("Test large positional, named, and mixed CLI arguments")
         large_arg = "x" * (1024 * 1024)
         cli = self.nodes[0].cli
         assert_equal(cli.echo(large_arg, "", "last"), [large_arg, "", "last"])
         assert_equal(cli.echo(arg0=large_arg, arg1="", arg2="last"), [large_arg, "", "last"])
+        assert_equal(cli.echo(large_arg, "", arg2="last"), [large_arg, "", "last"])
 
     def run_test(self):
         """Main test logic"""
