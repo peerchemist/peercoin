@@ -473,8 +473,8 @@ jobs:
             provider: 'gha'
 
           - name: 'ASan + LSan + UBSan + integer'
-            warp-runner: 'warp-ubuntu-2404-x64-8x' # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
-            fallback-runner: 'ubuntu-24.04'
+            warp-runner: 'warp-ubuntu-2604-x64-8x' # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
+            fallback-runner: 'ubuntu-26.04'
             timeout-minutes: 120
             file-env: './ci/test/00_setup_env_native_asan.sh'
 
