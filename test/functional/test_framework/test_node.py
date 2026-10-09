@@ -864,8 +864,16 @@ class RPCOverloadWrapper():
     def addmultisigaddress(self, nrequired, keys, label=None, address_type=None):
         wallet_info = self.getwalletinfo()
         if 'descriptors' not in wallet_info or ('descriptors' in wallet_info and not wallet_info['descriptors']):
-            return self.__getattr__('addmultisigaddress')(nrequired, keys, label, address_type)
-        cms = self.createmultisig(nrequired, keys, address_type)
+            args = [nrequired, keys]
+            if label is not None or address_type is not None:
+                args.append(label if label is not None else '')
+            if address_type is not None:
+                args.append(address_type)
+            return self.__getattr__('addmultisigaddress')(*args)
+        args = [nrequired, keys]
+        if address_type is not None:
+            args.append(address_type)
+        cms = self.createmultisig(*args)
         req = [{
             'desc': cms['descriptor'],
             'timestamp': 0,
