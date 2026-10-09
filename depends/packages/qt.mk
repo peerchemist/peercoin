@@ -159,6 +159,13 @@ $(package)_config_env += CXX="$$($(package)_cxx)"
 $(package)_config_env_darwin := OBJC="$$($(package)_cc)"
 $(package)_config_env_darwin += OBJCXX="$$($(package)_cxx)"
 
+# Set preprocessor flags before expanding the CMake options below.
+ifneq ($(host),$(build))
+ifeq ($(host_os),darwin)
+$(package)_cppflags += -DQT_NO_MACOS26_ACCESSIBILITY
+endif
+endif
+
 $(package)_cmake_opts := -DCMAKE_PREFIX_PATH=$(host_prefix)
 $(package)_cmake_opts += -DQT_FEATURE_cxx20=ON
 $(package)_cmake_opts += -DQT_GENERATE_SBOM=OFF
@@ -189,9 +196,6 @@ ifneq ($(host),$(build))
 $(package)_cmake_opts += -DCMAKE_SYSTEM_NAME=$($(host_os)_cmake_system_name)
 $(package)_cmake_opts += -DCMAKE_SYSTEM_VERSION=$($(host_os)_cmake_system_version)
 $(package)_cmake_opts += -DCMAKE_SYSTEM_PROCESSOR=$(host_arch)
-ifeq ($(host_os),darwin)
-$(package)_cppflags += -DQT_NO_MACOS26_ACCESSIBILITY
-endif
 # Native packages cannot be used during cross-compiling. However,
 # Qt still unconditionally tries to find them, which causes issues
 # in some cases, such as when cross-compiling from macOS to Windows.
