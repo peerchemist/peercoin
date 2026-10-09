@@ -98,7 +98,8 @@ RUN --security=insecure \
                    --profile="${GUIX_PROFILE}"
 
 RUN --mount=type=bind,src=depends,dst=/depends,rw \
-    make -C /depends -j"$(nproc)" download && mv /depends/sources /sources
+    --mount=type=bind,src=src/ipc/libmultiprocess,dst=/src/ipc/libmultiprocess \
+    make -C /depends HOST="${HOST}" -j"$(nproc)" download-one && mv /depends/sources /sources
 
 ARG xcode_download_path="https://bitcoincore.org/depends-sources/sdks/Xcode-26.1.1-17B100-extracted-SDK-with-libcxx-headers.tar"
 ARG xcode_checksum=9600fa93644df674ee916b5e2c8a6ba8dacf631996a65dc922d003b98b5ea3b1
