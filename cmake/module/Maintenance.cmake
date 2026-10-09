@@ -87,7 +87,18 @@ function(add_macos_deploy_target)
         DEPENDS ${PROJECT_BINARY_DIR}/${macos_zip}.zip
       )
     else()
-      find_program(INSTALL_NAME_TOOL_EXECUTABLE NAMES llvm-install-name-tool REQUIRED)
+      find_program(INSTALL_NAME_TOOL_EXECUTABLE NAMES llvm-install-name-tool)
+      if(NOT INSTALL_NAME_TOOL_EXECUTABLE)
+        # Debian provides this tool in LLVM's versioned bin directory.
+        find_program(LLVM_CONFIG_EXECUTABLE NAMES llvm-config REQUIRED)
+        execute_process(
+          COMMAND "${LLVM_CONFIG_EXECUTABLE}" --bindir
+          OUTPUT_VARIABLE llvm_bindir
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          COMMAND_ERROR_IS_FATAL ANY
+        )
+        find_program(INSTALL_NAME_TOOL_EXECUTABLE NAMES llvm-install-name-tool HINTS "${llvm_bindir}" REQUIRED)
+      endif()
       add_custom_command(
         OUTPUT ${PROJECT_BINARY_DIR}/dist/${macos_app}/Contents/MacOS/Peercoin-Qt
         COMMAND ${CMAKE_COMMAND} -E env
