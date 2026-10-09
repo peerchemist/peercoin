@@ -183,16 +183,20 @@ class DeploymentInfo(object):
         return False
 
 def getFrameworks(binaryPath: str, verbose: int, rpath: str = '') -> List[FrameworkInfo]:
+    objdump = os.getenv("OBJDUMP")
+    if objdump:
+        command = [objdump, "--macho", "--dylibs-used", binaryPath]
+    else:
+        command = [os.getenv("OTOOL", "otool"), "-L", binaryPath]
     if verbose:
-        print(f"Inspecting with otool: {binaryPath}")
-    otoolbin=os.getenv("OTOOL", "otool")
-    otool = run([otoolbin, "-L", binaryPath], stdout=PIPE, stderr=PIPE, text=True)
-    if otool.returncode != 0:
-        sys.stderr.write(otool.stderr)
+        print(f"Inspecting with {command[0]}: {binaryPath}")
+    result = run(command, stdout=PIPE, stderr=PIPE, text=True)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr)
         sys.stderr.flush()
-        raise RuntimeError(f"otool failed with return code {otool.returncode}")
+        raise RuntimeError(f"{command[0]} failed with return code {result.returncode}")
 
-    otoolLines = otool.stdout.split("\n")
+    otoolLines = result.stdout.split("\n")
     otoolLines.pop(0) # First line is the inspected binary
     if ".framework" in binaryPath or binaryPath.endswith(".dylib"):
         otoolLines.pop(0) # Frameworks and dylibs list themselves as a dependency.

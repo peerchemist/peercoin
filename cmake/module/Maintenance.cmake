@@ -87,9 +87,14 @@ function(add_macos_deploy_target)
         DEPENDS ${PROJECT_BINARY_DIR}/${macos_zip}.zip
       )
     else()
+      find_program(INSTALL_NAME_TOOL_EXECUTABLE NAMES llvm-install-name-tool REQUIRED)
       add_custom_command(
         OUTPUT ${PROJECT_BINARY_DIR}/dist/${macos_app}/Contents/MacOS/Peercoin-Qt
-        COMMAND ${CMAKE_COMMAND} -E env OBJDUMP=${CMAKE_OBJDUMP} $<TARGET_FILE:Python3::Interpreter> ${PROJECT_SOURCE_DIR}/contrib/macdeploy/macdeployqtplus ${macos_app} -translations-dir=${QT_TRANSLATIONS_DIR}
+        COMMAND ${CMAKE_COMMAND} -E env
+          "OBJDUMP=${CMAKE_OBJDUMP}"
+          "STRIP=${CMAKE_STRIP}"
+          "INSTALL_NAME_TOOL=${INSTALL_NAME_TOOL_EXECUTABLE}"
+          $<TARGET_FILE:Python3::Interpreter> ${PROJECT_SOURCE_DIR}/contrib/macdeploy/macdeployqtplus ${macos_app} -translations-dir=${QT_TRANSLATIONS_DIR}
         DEPENDS ${PROJECT_BINARY_DIR}/${macos_app}/Contents/MacOS/Peercoin-Qt
         VERBATIM
       )
