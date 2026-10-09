@@ -804,10 +804,21 @@ class TestNodeCLI():
             p_args += ["-named"]
         if command is not None:
             p_args += [command]
-        p_args += pos_args + named_args
-        self.log.debug("Running peercoin-cli {}".format(p_args[2:]))
-        process = subprocess.Popen(p_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-        cli_stdout, cli_stderr = process.communicate(input=self.input)
+        cli_args = pos_args + named_args
+        cli_input = self.input
+        self.log.debug("Running peercoin-cli {}".format((p_args + cli_args)[2:]))
+        try:
+            process = subprocess.Popen(p_args + cli_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        except OSError as e:
+            # Large transactions can exceed the OS command-line argument limit.
+            # -stdin accepts one argument per line, so only retry when this
+            # preserves the arguments and does not replace explicit stdin input.
+            if e.errno != errno.E2BIG or cli_input is not None or not cli_args or any("\n" in arg for arg in cli_args):
+                raise
+            p_args.insert(1, "-stdin")
+            cli_input = "\n".join(cli_args) + "\n"
+            process = subprocess.Popen(p_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        cli_stdout, cli_stderr = process.communicate(input=cli_input)
         returncode = process.poll()
         if returncode:
             match = re.match(r'error code: ([-0-9]+)\nerror message:\n(.*)', cli_stderr)
