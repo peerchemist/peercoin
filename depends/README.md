@@ -18,6 +18,12 @@ To build dependencies for the current arch+OS:
 
     make
 
+Linux GUI builds include both X11 (xcb) and Wayland platform plugins. Wayland
+client libraries and libffi are built statically; the native Wayland scanner is
+built separately so cross-builds do not execute target binaries. Qt uses software
+rendering, so no EGL/OpenGL dependencies are required. To select a backend when
+running the GUI, use `QT_QPA_PLATFORM=wayland` or `QT_QPA_PLATFORM=xcb`.
+
 ### macOS
 
 Install Xcode Command Line Tools and Homebrew Package Manager,

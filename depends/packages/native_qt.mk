@@ -4,6 +4,7 @@ $(package)_version=$(qt_details_version)
 $(package)_download_path=$(qt_details_download_path)
 $(package)_file_name=$(qt_details_qtbase_file_name)
 $(package)_sha256_hash=$(qt_details_qtbase_sha256_hash)
+$(package)_linux_dependencies=native_wayland
 $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := qtbase_skip_tools.patch
 $(package)_patches += rcc_hardcode_timestamp.patch
@@ -91,6 +92,10 @@ $(package)_config_env += OBJCXX="$$(build_CXX)"
 endif
 
 $(package)_cmake_opts := -DCMAKE_EXE_LINKER_FLAGS="$$(build_LDFLAGS)"
+ifeq ($(host_os),linux)
+$(package)_cmake_opts += -DQT_FEATURE_qtwaylandscanner=ON
+$(package)_cmake_opts += -DWaylandScanner_EXECUTABLE=$(build_prefix)/bin/wayland-scanner
+endif
 ifneq ($(V),)
 $(package)_cmake_opts += --log-level=STATUS
 endif

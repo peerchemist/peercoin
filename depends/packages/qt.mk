@@ -9,6 +9,7 @@ $(package)_dependencies := native_$(package)
 endif
 $(package)_linux_dependencies := freetype fontconfig libxcb libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 $(package)_freebsd_dependencies := $($(package)_linux_dependencies)
+$(package)_linux_dependencies += wayland
 $(package)_patches_path := $(qt_details_patches_path)
 $(package)_patches := qtbase_avoid_qmain.patch
 $(package)_patches += qtbase_skip_tools.patch
@@ -16,6 +17,7 @@ $(package)_patches += rcc_hardcode_timestamp.patch
 $(package)_patches += qttools_skip_dependencies.patch
 $(package)_patches += static_fixes.patch
 $(package)_patches += disable_macos26_accessibility.patch
+$(package)_patches += wayland_static.patch
 
 $(package)_qttranslations_file_name=$(qt_details_qttranslations_file_name)
 $(package)_qttranslations_sha256_hash=$(qt_details_qttranslations_sha256_hash)
@@ -138,7 +140,6 @@ $(package)_config_opts_darwin += -no-pkg-config
 
 $(package)_config_opts_linux := -fontconfig
 $(package)_config_opts_linux += -no-feature-process
-$(package)_config_opts_linux += -no-feature-wayland
 $(package)_config_opts_linux += -no-feature-xlib
 $(package)_config_opts_linux += -no-xcb-xlib
 $(package)_config_opts_linux += -pkg-config
@@ -148,6 +149,10 @@ ifneq ($(LTO),)
 $(package)_config_opts_linux += -ltcg
 endif
 $(package)_config_opts_freebsd := $$($(package)_config_opts_linux)
+$(package)_config_opts_freebsd += -no-feature-wayland
+ifeq ($(host_os),linux)
+$(package)_config_opts_linux += -feature-wayland -feature-wayland-client -feature-waylandscanner
+endif
 
 $(package)_config_opts_mingw32 := -no-dbus
 $(package)_config_opts_mingw32 += -no-feature-freetype
@@ -209,6 +214,7 @@ ifeq ($(host_os),linux)
 # The `-dbus-runtime` configure option does not work
 # https://qt-project.atlassian.net/browse/QTBUG-144864
 $(package)_cmake_opts += -DINPUT_dbus=runtime
+$(package)_cmake_opts += -DWaylandScanner_EXECUTABLE=$(build_prefix)/bin/wayland-scanner
 endif
 ifeq ($(host_os),darwin)
 $(package)_cmake_opts += -DCMAKE_INSTALL_NAME_TOOL=true
@@ -271,7 +277,8 @@ define $(package)_preprocess_cmds
   patch -p1 -i $($(package)_patch_dir)/qtbase_skip_tools.patch && \
   patch -p1 -i $($(package)_patch_dir)/rcc_hardcode_timestamp.patch && \
   patch -p1 -i $($(package)_patch_dir)/static_fixes.patch && \
-  patch -p1 -i $($(package)_patch_dir)/disable_macos26_accessibility.patch
+  patch -p1 -i $($(package)_patch_dir)/disable_macos26_accessibility.patch && \
+  patch -p1 -i $($(package)_patch_dir)/wayland_static.patch
 endef
 ifeq ($(host),$(build))
   $(package)_preprocess_cmds += && patch -p1 -i $($(package)_patch_dir)/qttools_skip_dependencies.patch

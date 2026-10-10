@@ -18,6 +18,12 @@ function(import_plugins target)
     set(plugins Qt6::QMinimalIntegrationPlugin)
     if(CMAKE_SYSTEM_NAME MATCHES "^(Linux|FreeBSD)$")
       list(APPEND plugins Qt6::QXcbIntegrationPlugin)
+      if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET Qt6::QWaylandIntegrationPlugin)
+        # Static Wayland needs both the platform and desktop shell plugins.
+        find_package(Qt6 REQUIRED COMPONENTS WaylandClient)
+        list(APPEND plugins Qt6::QWaylandIntegrationPlugin
+          Qt6::QWaylandXdgShellIntegrationPlugin Qt6::QWaylandBradientDecorationPlugin)
+      endif()
     elseif(WIN32)
       list(APPEND plugins Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin)
     elseif(APPLE)
@@ -31,6 +37,8 @@ function(import_plugins target)
         platforms_darwin
         xcbglintegrations
         platformthemes
+        wayland-shell-integration
+        wayland-decoration-client
         platforminputcontexts
         generic
         iconengines
@@ -247,6 +255,8 @@ if(qt_lib_type STREQUAL "STATIC_LIBRARY")
       platforms_darwin
       xcbglintegrations
       platformthemes
+      wayland-shell-integration
+      wayland-decoration-client
       platforminputcontexts
       generic
       iconengines

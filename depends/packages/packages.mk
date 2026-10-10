@@ -10,11 +10,14 @@ qrencode_mingw32_packages = qrencode
 
 qt_linux_packages:=qt expat libxcb xcb_proto libXau xproto freetype fontconfig libxkbcommon libxcb_util libxcb_util_cursor libxcb_util_render libxcb_util_keysyms libxcb_util_image libxcb_util_wm
 qt_freebsd_packages:=$(qt_linux_packages)
+qt_linux_packages += wayland libffi
+qt_linux_native_packages=native_wayland native_expat
 qt_darwin_packages=qt
 qt_mingw32_packages=qt
 ifneq ($(host),$(build))
 qt_native_packages := native_qt
 endif
+qt_native_packages += $(qt_$(host_os)_native_packages)
 
 sqlite_packages=sqlite
 
