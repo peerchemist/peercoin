@@ -129,6 +129,7 @@ MACHO_ALLOWED_LIBRARIES = {
 'libobjc.A.dylib', # Objective-C runtime library
 'Metal', # 3D graphics
 'QuartzCore', # animation
+'ScreenCaptureKit', # screen capture used by Qt's Cocoa platform plugin
 'Security', # access control and authentication
 'UniformTypeIdentifiers', # collection of types that map to MIME and file types
 }
