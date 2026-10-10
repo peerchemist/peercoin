@@ -4,7 +4,7 @@
              ((gnu packages build-tools) #:select (meson))
              ((gnu packages certs) #:select (nss-certs))
              ((gnu packages check) #:select (libfaketime))
-             ((gnu packages cmake) #:select (cmake-minimal))
+             ((gnu packages cmake) #:select (cmake-minimal cmake-3.30))
              (gnu packages commencement)
              (gnu packages compression)
              (gnu packages cross-base)
@@ -556,7 +556,9 @@ inspecting signatures in Mach-O binaries.")
         xz
         ;; Build tools
         gcc-toolchain-14
-        cmake-minimal
+        ;; Qt 6.12 requires CMake >= 3.25; cmake-minimal in the pinned
+        ;; Guix revision is still 3.24.2.
+        cmake-3.30
         gnu-make
         meson
         ninja
