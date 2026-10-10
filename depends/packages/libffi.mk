@@ -6,6 +6,8 @@ $(package)_sha256_hash=b0dea9df23c863a7a50e825440f3ebffabd65df1497108e5d43774784
 
 define $(package)_set_vars
 $(package)_config_opts=--disable-shared --disable-docs --disable-multi-os-directory
+# The AArch64 backend uses GNU inline assembly and needs GNU C extensions.
+$(package)_cflags += -std=gnu11
 endef
 
 define $(package)_preprocess_cmds
