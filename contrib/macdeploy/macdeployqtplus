@@ -18,8 +18,6 @@
 
 import sys, re, os, platform, shutil, stat, subprocess, os.path
 from argparse import ArgumentParser
-from ds_store import DSStore
-from mac_alias import Alias
 from pathlib import Path
 from subprocess import PIPE, run
 from typing import List, Optional
@@ -519,6 +517,10 @@ if config.zip is not None:
 if config.dmg is None:
     print("+ Done +")
     sys.exit(0)
+
+# Only the legacy DMG path needs these optional Finder metadata libraries.
+from ds_store import DSStore
+from mac_alias import Alias
 
 # ------------------------------------------------
 
