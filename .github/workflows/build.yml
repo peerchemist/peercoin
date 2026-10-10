@@ -205,6 +205,64 @@ jobs:
           cache-from: ${{ steps.build.outputs.cache-image-used == 'true' && env.TARGET_CACHE || env.TARGET }}
           cache-to: type=inline
 
+  ci-downloads:
+    name: Direct CI downloads
+    runs-on: ubuntu-26.04
+    needs: binary
+    # Keep official/signed releases on their existing publication path. Publish
+    # successful targets even when another platform in the matrix failed.
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' &&
+          startsWith(github.ref, 'refs/heads/') &&
+          github.ref != 'refs/heads/develop' &&
+          !startsWith(github.ref, 'refs/heads/release-') &&
+          (needs.binary.result == 'success' || needs.binary.result == 'failure') }}
+    permissions:
+      contents: write
+    steps:
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: peercoin-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish original archives without the Actions ZIP wrapper
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cd artifacts
+          shopt -s nullglob
+          assets=(*.tar.gz *.zip *.exe *.dmg)
+          if (( ${#assets[@]} == 0 )); then
+            echo "No successful binary artifacts to publish." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          sha256sum -- "${assets[@]}" > SHA256SUMS
+          tag="ci-${GITHUB_RUN_ID}"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          notes="Unsigned development binaries from ${GITHUB_SHA}. Not an official release. Only successfully built platforms are included. Build logs: ${run_url}"
+          if ! gh release view "$tag" > /dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" \
+              --title "CI build: ${GITHUB_REF_NAME} (${GITHUB_SHA:0:12})" \
+              --prerelease --latest=false --notes "$notes"
+          fi
+          gh release upload "$tag" "${assets[@]}" SHA256SUMS --clobber
+          download_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${tag}"
+          {
+            echo "## Direct downloads"
+            echo
+            echo "Unsigned CI binaries, without an extra ZIP wrapper:"
+            echo
+            for asset in "${assets[@]}" SHA256SUMS; do
+              echo "- [${asset}](${download_url}/${asset})"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
   docker:
     runs-on: ubuntu-26.04
     needs: binary
