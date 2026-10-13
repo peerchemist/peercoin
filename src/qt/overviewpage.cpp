@@ -21,9 +21,9 @@
 #include <QDateTime>
 #include <QPainter>
 #include <QStatusTipEvent>
+#include <QStyle>
 
 #include <algorithm>
-#include <map>
 
 #define DECORATION_SIZE 64
 #define NUM_ITEMS 7
@@ -37,110 +37,74 @@ public:
     explicit TxViewDelegate(const PlatformStyle* _platformStyle, QObject* parent = nullptr)
         : QAbstractItemDelegate(parent), platformStyle(_platformStyle)
     {
-        connect(this, &TxViewDelegate::width_changed, this, &TxViewDelegate::sizeHintChanged);
     }
 
     inline void paint(QPainter *painter, const QStyleOptionViewItem &option,
                       const QModelIndex &index ) const override
     {
         painter->save();
-
-        QIcon icon = qvariant_cast<QIcon>(index.data(TransactionTableModel::RawDecorationRole));
-        QRect mainRect = option.rect;
-        QRect decorationRect(mainRect.topLeft(), QSize(DECORATION_SIZE, DECORATION_SIZE));
-        int xspace = DECORATION_SIZE + 8;
-        int ypad = 12;
-        int halfheight = (mainRect.height() - 2*ypad)/2;
-        QRect amountRect(mainRect.left() + xspace, mainRect.top()+ypad, mainRect.width() - xspace, halfheight);
-        QRect addressRect(mainRect.left() + xspace, mainRect.top()+ypad+halfheight, mainRect.width() - xspace, halfheight);
-        icon = QIcon(icon);
-        icon.paint(painter, decorationRect);
-
-        QDateTime date = index.data(TransactionTableModel::DateRole).toDateTime();
-        QString address = index.data(Qt::DisplayRole).toString();
-        qint64 amount = index.data(TransactionTableModel::AmountRole).toLongLong();
-        bool confirmed = index.data(TransactionTableModel::ConfirmedRole).toBool();
-        QVariant value = index.data(Qt::ForegroundRole);
-        QColor foreground = QColor(0x4b, 0x4b, 0x4b);
-        QFont font = QFont();
-        font.setPixelSize(20);
-
-        if (index.data(TransactionTableModel::WatchonlyRole).toBool()) {
-        painter->setFont(font);
-            QIcon iconWatchonly = qvariant_cast<QIcon>(index.data(TransactionTableModel::WatchonlyDecorationRole));
-            QRect watchonlyRect(addressRect.left(), addressRect.top(), 16, addressRect.height());
-            iconWatchonly = platformStyle->TextColorIcon(iconWatchonly);
-            iconWatchonly.paint(painter, watchonlyRect);
-            addressRect.setLeft(addressRect.left() + watchonlyRect.width() + 5);
+        painter->setRenderHint(QPainter::Antialiasing);
+        const QRect row = option.rect.adjusted(0, 2, -1, -2);
+        if (option.state & (QStyle::State_Selected | QStyle::State_MouseOver)) {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor("#edf5ef"));
+            painter->drawRoundedRect(row, 8, 8);
+        }
+        if (option.state & QStyle::State_HasFocus) {
+            painter->setPen(QColor("#237a4b"));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRoundedRect(row.adjusted(1, 1, -1, -1), 8, 8);
         }
 
-        if (index.data(TransactionTableModel::WatchonlyRole).toBool()) {
-            QIcon iconWatchonly = qvariant_cast<QIcon>(index.data(TransactionTableModel::WatchonlyDecorationRole));
-            QRect watchonlyRect(addressRect.left(), addressRect.top(), 16, addressRect.height());
-            iconWatchonly = platformStyle->TextColorIcon(iconWatchonly);
-            iconWatchonly.paint(painter, watchonlyRect);
-            addressRect.setLeft(addressRect.left() + watchonlyRect.width() + 5);
-        }
-
-        painter->setPen(foreground);
-        QRect boundingRect;
-        painter->drawText(addressRect, Qt::AlignLeft | Qt::AlignVCenter, address, &boundingRect);
-
-        if(amount < 0)
-        {
-            foreground = COLOR_NEGATIVE;
-        }
-        else if(!confirmed)
-        {
-            foreground = COLOR_UNCONFIRMED;
-        }
-        else
-        {
-            foreground = COLOR_POSITIVE;
-        }
-        painter->setPen(foreground);
-        font.setPixelSize(14);
-        painter->setFont(font);
+        const QRect iconRect(row.left() + 12, row.center().y() - 18, 36, 36);
+        const QIcon icon = qvariant_cast<QIcon>(index.data(TransactionTableModel::RawDecorationRole));
+        icon.paint(painter, iconRect);
+        const int textLeft = iconRect.right() + 16;
+        QRect topRect(textLeft, row.top() + 8, row.right() - textLeft - 12, 24);
+        QRect addressRect(textLeft, row.top() + 34, topRect.width(), 22);
+        const auto date = index.data(TransactionTableModel::DateRole).toDateTime();
+        const QString address = index.data(Qt::DisplayRole).toString();
+        const qint64 amount = index.data(TransactionTableModel::AmountRole).toLongLong();
+        const bool confirmed = index.data(TransactionTableModel::ConfirmedRole).toBool();
         QString amountText = BitcoinUnits::formatWithUnit(unit, amount, true, BitcoinUnits::SeparatorStyle::ALWAYS);
-        if(!confirmed)
-        {
-            amountText = QString("[") + amountText + QString("]");
+        if (!confirmed) amountText = QString("[%1]").arg(amountText);
+
+        QFont amountFont = option.font;
+        amountFont.setWeight(QFont::DemiBold);
+        painter->setFont(amountFont);
+        const QFontMetrics amountMetrics(amountFont);
+        const int amountWidth = amountMetrics.horizontalAdvance(amountText);
+        painter->setPen(amount < 0 ? QColor("#ad3838") : confirmed ? QColor("#237a4b") : QColor("#687e70"));
+        painter->drawText(topRect, Qt::AlignRight | Qt::AlignVCenter, amountText);
+
+        painter->setFont(option.font);
+        const QFontMetrics metrics(option.font);
+        const QRect dateRect = topRect.adjusted(0, 0, -amountWidth - 24, 0);
+        painter->setPen(QColor("#52675a"));
+        painter->drawText(dateRect, Qt::AlignLeft | Qt::AlignVCenter,
+                          metrics.elidedText(GUIUtil::dateTimeStr(date), Qt::ElideRight, std::max(0, dateRect.width())));
+        if (index.data(TransactionTableModel::WatchonlyRole).toBool()) {
+            const QIcon watchIcon = platformStyle->TextColorIcon(qvariant_cast<QIcon>(index.data(TransactionTableModel::WatchonlyDecorationRole)));
+            watchIcon.paint(painter, QRect(addressRect.left(), addressRect.top() + 3, 16, 16));
+            addressRect.setLeft(addressRect.left() + 22);
         }
-
-        QRect amount_bounding_rect;
-        painter->drawText(amountRect, Qt::AlignRight | Qt::AlignVCenter, amountText, &amount_bounding_rect);
-
-        painter->setPen(COLOR_POSITIVE);
-        QRect date_bounding_rect;
-        painter->drawText(amountRect, Qt::AlignLeft | Qt::AlignVCenter, GUIUtil::dateTimeStr(date), &date_bounding_rect);
-
-        // 0.4*date_bounding_rect.width() is used to visually distinguish a date from an amount.
-        const int minimum_width = 1.4 * date_bounding_rect.width() + amount_bounding_rect.width();
-        const auto search = m_minimum_width.find(index.row());
-        if (search == m_minimum_width.end() || search->second != minimum_width) {
-            m_minimum_width[index.row()] = minimum_width;
-            Q_EMIT width_changed(index);
-        }
-
+        painter->setPen(QColor("#52675a"));
+        painter->drawText(addressRect, Qt::AlignLeft | Qt::AlignVCenter,
+                          metrics.elidedText(address, Qt::ElideMiddle, std::max(0, addressRect.width())));
         painter->restore();
     }
 
     inline QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
-        const auto search = m_minimum_width.find(index.row());
-        const int minimum_text_width = search == m_minimum_width.end() ? 0 : search->second;
-        return {DECORATION_SIZE + 8 + minimum_text_width, DECORATION_SIZE};
+        Q_UNUSED(option);
+        Q_UNUSED(index);
+        return {360, DECORATION_SIZE + 8};
     }
 
     BitcoinUnit unit{BitcoinUnit::BTC};
 
-Q_SIGNALS:
-    //! An intermediate signal for emitting from the `paint() const` member function.
-    void width_changed(const QModelIndex& index) const;
-
 private:
     const PlatformStyle* platformStyle;
-    mutable std::map<int, int> m_minimum_width;
 };
 
 #include <qt/overviewpage.moc>
@@ -161,7 +125,9 @@ OverviewPage::OverviewPage(const PlatformStyle *platformStyle, QWidget *parent) 
     // Recent transactions
     ui->listTransactions->setItemDelegate(txdelegate);
     ui->listTransactions->setIconSize(QSize(DECORATION_SIZE, DECORATION_SIZE));
-    ui->listTransactions->setMinimumHeight(NUM_ITEMS * (DECORATION_SIZE + 2));
+    ui->listTransactions->setMinimumHeight(3 * (DECORATION_SIZE + 8));
+    ui->listTransactions->setMouseTracking(true);
+    LimitTransactionRows();
     ui->listTransactions->setAttribute(Qt::WA_MacShowFocusRect, false);
 
     connect(ui->listTransactions, &TransactionOverviewWidget::clicked, this, &OverviewPage::handleTransactionClicked);
@@ -187,7 +153,7 @@ void OverviewPage::setPrivacy(bool privacy)
         setBalance(balances);
     }
 
-    ui->listTransactions->setVisible(!m_privacy);
+    LimitTransactionRows();
 
     const QString status_tip = m_privacy ? tr("Privacy mode activated for the Overview tab. To unmask the values, uncheck Settings->Mask values.") : "";
     setStatusTip(status_tip);
@@ -288,6 +254,8 @@ void OverviewPage::setWalletModel(WalletModel *model)
         connect(filter.get(), &TransactionFilterProxy::rowsInserted, this, &OverviewPage::LimitTransactionRows);
         connect(filter.get(), &TransactionFilterProxy::rowsRemoved, this, &OverviewPage::LimitTransactionRows);
         connect(filter.get(), &TransactionFilterProxy::rowsMoved, this, &OverviewPage::LimitTransactionRows);
+        connect(filter.get(), &TransactionFilterProxy::modelReset, this, &OverviewPage::LimitTransactionRows);
+        connect(filter.get(), &TransactionFilterProxy::layoutChanged, this, &OverviewPage::LimitTransactionRows);
         LimitTransactionRows();
         // Keep up to date with wallet
         setBalance(model->getCachedBalance());
@@ -319,6 +287,12 @@ void OverviewPage::changeEvent(QEvent* e)
 // Only show most recent NUM_ITEMS rows
 void OverviewPage::LimitTransactionRows()
 {
+    const bool has_transactions = filter && filter->rowCount() > 0;
+    ui->listTransactions->setVisible(has_transactions && !m_privacy);
+    ui->activityPlaceholder->setVisible(!has_transactions || m_privacy);
+    ui->activityPlaceholder->setText(m_privacy
+        ? tr("Recent transactions are hidden while privacy mode is enabled.")
+        : tr("No transactions yet. Your recent activity will appear here."));
     if (filter && ui->listTransactions && ui->listTransactions->model() && filter.get() == ui->listTransactions->model()) {
         for (int i = 0; i < filter->rowCount(); ++i) {
             ui->listTransactions->setRowHidden(i, i >= NUM_ITEMS);

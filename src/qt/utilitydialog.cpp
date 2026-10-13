@@ -31,6 +31,7 @@ HelpMessageDialog::HelpMessageDialog(QWidget *parent, bool about) :
     QDialog(parent, GUIUtil::dialog_flags),
     ui(new Ui::HelpMessageDialog)
 {
+    setProperty("aboutDialog", about);
     ui->setupUi(this);
 
     QString version = QString{CLIENT_NAME} + " " + tr("version") + " " + QString::fromStdString(FormatFullVersion());
@@ -38,24 +39,33 @@ HelpMessageDialog::HelpMessageDialog(QWidget *parent, bool about) :
     if (about)
     {
         setWindowTitle(tr("About %1").arg(CLIENT_NAME));
+        ui->aboutTitle->setText(tr("About %1").arg(CLIENT_NAME));
+        ui->aboutProductName->setText(CLIENT_NAME);
+        ui->aboutProductType->setText(tr("Desktop wallet"));
+        ui->aboutVersion->setText(version);
 
-        std::string licenseInfo = LicenseInfo();
+        const std::string licenseInfo = LicenseInfo();
         /// HTML-format the license message from the core
-        QString licenseInfoHTML = QString::fromStdString(LicenseInfo());
+        QString licenseInfoHTML = QString::fromStdString(licenseInfo);
         // Make URLs clickable
         QRegularExpression uri(QStringLiteral("<(.*)>"), QRegularExpression::InvertedGreedinessOption);
-        licenseInfoHTML.replace(uri, QStringLiteral("<a href=\"\\1\">\\1</a>"));
+        licenseInfoHTML.replace(uri, QStringLiteral("<a style=\"color:#237a4b\" href=\"\\1\">\\1</a>"));
         // Replace newlines with HTML breaks
         licenseInfoHTML.replace("\n", "<br>");
 
         ui->aboutMessage->setTextFormat(Qt::RichText);
         ui->scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
         text = version + "\n" + QString::fromStdString(FormatParagraph(licenseInfo));
-        ui->aboutMessage->setText(version + "<br><br>" + licenseInfoHTML);
+        ui->aboutMessage->setText(licenseInfoHTML);
         ui->aboutMessage->setWordWrap(true);
         ui->helpMessage->setVisible(false);
     } else {
         setWindowTitle(tr("Command-line options"));
+        ui->aboutBrandPanel->setVisible(false);
+        ui->aboutTitle->setVisible(false);
+        ui->aboutVersion->setVisible(false);
+        ui->aboutDivider->setVisible(false);
+        ui->horizontalLayout_2->setContentsMargins(16, 16, 16, 16);
         QString header = "Usage:  peercoin-qt [command-line options]                     \n";
         QTextCursor cursor(ui->helpMessage->document());
         cursor.insertText(version);
@@ -100,7 +110,6 @@ HelpMessageDialog::HelpMessageDialog(QWidget *parent, bool about) :
 
         ui->helpMessage->moveCursor(QTextCursor::Start);
         ui->scrollArea->setVisible(false);
-        ui->aboutLogo->setVisible(false);
     }
 
     GUIUtil::handleCloseWindowShortcut(this);

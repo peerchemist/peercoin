@@ -100,7 +100,8 @@ BitcoinGUI::BitcoinGUI(interfaces::Node& node, const PlatformStyle *_platformSty
 {
     QSettings settings;
     if (!restoreGeometry(settings.value("MainWindowGeometry").toByteArray())) {
-        // Restore failed (perhaps missing setting), center the window
+        // Restore failed (perhaps missing setting), size and center the window
+        resize(QSize(1100, 820).boundedTo(QGuiApplication::primaryScreen()->availableGeometry().size()));
         move(QGuiApplication::primaryScreen()->availableGeometry().center() - frameGeometry().center());
     }
 
@@ -672,9 +673,14 @@ void BitcoinGUI::createToolBars()
     if(walletFrame)
     {
         QLabel *imageLogo = new QLabel;
-        imageLogo->setPixmap(QPixmap(":/images/logo"));
+        imageLogo->setPixmap(QPixmap(":/images/logo").scaledToWidth(168, Qt::SmoothTransformation));
         imageLogo->setObjectName("logo");
-        QToolBar *toolbar = addToolBar(tr("Tabs toolbar"));
+        QToolBar *toolbar = new QToolBar(tr("Wallet navigation"), this);
+        toolbar->setObjectName("walletNavigation");
+        addToolBar(Qt::LeftToolBarArea, toolbar);
+        toolbar->setAllowedAreas(Qt::LeftToolBarArea);
+        toolbar->setFloatable(false);
+        toolbar->setIconSize(QSize(20, 20));
         appToolBar = toolbar;
         toolbar->setMovable(false);
         toolbar->setToolButtonStyle(Qt::ToolButtonTextOnly);
@@ -694,11 +700,14 @@ void BitcoinGUI::createToolBars()
         toolbar->addWidget(spacer);
 
         m_wallet_selector = new QComboBox();
-        m_wallet_selector->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+        m_wallet_selector->setObjectName("walletSelector");
+        m_wallet_selector->setMinimumContentsLength(16);
+        m_wallet_selector->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+        m_wallet_selector->setToolTip(tr("Select the active wallet"));
         connect(m_wallet_selector, qOverload<int>(&QComboBox::currentIndexChanged), this, &BitcoinGUI::setCurrentWalletBySelectorIndex);
 
         m_wallet_selector_label = new QLabel();
-        m_wallet_selector_label->setText(tr("Wallet:") + " ");
+        m_wallet_selector_label->setText(tr("Wallet"));
         m_wallet_selector_label->setBuddy(m_wallet_selector);
 
         m_wallet_selector_label_action = appToolBar->addWidget(m_wallet_selector_label);
@@ -1379,14 +1388,7 @@ void BitcoinGUI::message(const QString& title, QString message, unsigned int sty
 
 void BitcoinGUI::changeEvent(QEvent *e)
 {
-    if (e->type() == QEvent::PaletteChange) {
-        overviewAction->setIcon(platformStyle->SingleColorIcon(QStringLiteral(":/icons/overview")));
-        sendCoinsAction->setIcon(platformStyle->SingleColorIcon(QStringLiteral(":/icons/send")));
-        receiveCoinsAction->setIcon(platformStyle->SingleColorIcon(QStringLiteral(":/icons/receiving_addresses")));
-        historyAction->setIcon(platformStyle->SingleColorIcon(QStringLiteral(":/icons/transactions")));
-        mintingAction->setIcon(platformStyle->SingleColorIcon(QStringLiteral(":/icons/minting")));
-    }
-
+    // Navigation uses white resource icons on a fixed dark background, independent of the desktop palette.
     QMainWindow::changeEvent(e);
 
 #ifndef Q_OS_MACOS // Ignored on Mac

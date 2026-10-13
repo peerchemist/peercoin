@@ -15,13 +15,13 @@ TransactionOverviewWidget::TransactionOverviewWidget(QWidget* parent)
 
 QSize TransactionOverviewWidget::sizeHint() const
 {
-    return {sizeHintForColumn(TransactionTableModel::ToAddress), QListView::sizeHint().height()};
+    return {360, 320};
 }
 
 void TransactionOverviewWidget::showEvent(QShowEvent* event)
 {
     Q_UNUSED(event);
     QSizePolicy sp = sizePolicy();
-    sp.setHorizontalPolicy(QSizePolicy::Minimum);
+    sp.setHorizontalPolicy(QSizePolicy::Expanding);
     setSizePolicy(sp);
 }
