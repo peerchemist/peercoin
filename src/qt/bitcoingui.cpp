@@ -72,6 +72,7 @@
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolButton>
 #include <QFontDatabase>
 #include <QDesktopServices>
 #include <QWindow>
@@ -687,11 +688,24 @@ void BitcoinGUI::createToolBars()
         toolbar->addWidget(imageLogo);
         toolbar->setMovable(false);
         toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-        toolbar->addAction(overviewAction);
-        toolbar->addAction(sendCoinsAction);
-        toolbar->addAction(receiveCoinsAction);
-        toolbar->addAction(historyAction);
-        toolbar->addAction(mintingAction);
+        const auto addNavigationAction = [toolbar](QAction* action) {
+            toolbar->addAction(action);
+
+            // QToolButton uses a small, style-defined gap between its icon and
+            // text. Keep the extra spacing local to the sidebar so the action
+            // labels remain unchanged in menus and accessibility APIs.
+            auto* button = qobject_cast<QToolButton*>(toolbar->widgetForAction(action));
+            const auto updateButtonText = [button, action] {
+                button->setText(QStringLiteral("\u2002\u2002\u2002\u2002") + action->text());
+            };
+            updateButtonText();
+            connect(action, &QAction::changed, button, updateButtonText);
+        };
+        addNavigationAction(overviewAction);
+        addNavigationAction(sendCoinsAction);
+        addNavigationAction(receiveCoinsAction);
+        addNavigationAction(historyAction);
+        addNavigationAction(mintingAction);
         overviewAction->setChecked(true);
 
 #ifdef ENABLE_WALLET
